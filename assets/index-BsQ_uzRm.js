@@ -7575,6 +7575,17 @@ buffer/index.js:
     async deleteChallenge(g) {
       return await he`DELETE FROM global_challenges WHERE id = ${g}`;
     },
+    async leaveChallenge(challengeId, userId) {
+      return await he`DELETE FROM participants WHERE challenge_id = ${challengeId} AND user_id = ${userId}`;
+    },
+    async getChallengeParticipants(challengeId) {
+      return await he`
+        SELECT u.name
+        FROM participants p
+        JOIN users u ON u.id = p.user_id
+        WHERE p.challenge_id = ${challengeId}
+      `;
+    },
     async getLogDates(challengeId, userId) {
       return await he`
         SELECT DISTINCT log_date FROM logs
@@ -7768,7 +7779,8 @@ const qr = {
         for (const s of a) {
           const r = await fe.getTodayProgress(s.id, ue.id);
           const logDates = await fe.getLogDates(s.id, ue.id);
-          const h = this.createMyChallengeCard(s, r, logDates);
+          const participants = await fe.getChallengeParticipants(s.id);
+          const h = this.createMyChallengeCard(s, r, logDates, participants);
           g.appendChild(h);
         }
       if (l)
@@ -7777,7 +7789,8 @@ const qr = {
             '<p style="grid-column: 1/-1; text-align: center;">No more shared challenges to join.</p>';
         else
           for (const s of u) {
-            const r = this.createAvailableChallengeCard(s);
+            const participants = await fe.getChallengeParticipants(s.id);
+            const r = this.createAvailableChallengeCard(s, participants);
             l.appendChild(r);
           }
     } catch (a) {
@@ -7786,7 +7799,7 @@ const qr = {
         l && (l.innerHTML = ""));
     }
   },
-  createMyChallengeCard(g, l, logDates) {
+  createMyChallengeCard(g, l, logDates, participants) {
     const u = document
         .getElementById("joined-challenge-card-template")
         .content.cloneNode(!0),
@@ -7813,16 +7826,41 @@ const qr = {
           n >= 100 &&
             ((p.style.stroke = "var(--accent-purple)"),
             (b.style.fill = "var(--accent-purple)")));
-      }, 100),
-      u.querySelector(".delete-btn").addEventListener("click", async () => {
-        confirm(
-          `Remove shared challenge: ${g.exercise}? NOTE: This deletes it for everyone.`,
-        ) && (await fe.deleteChallenge(g.id), await this.renderDashboard());
-      }));
+      }, 100));
+      const Dbt = u.querySelector(".delete-btn");
+      if (g.creator_id === ue.id) {
+        Dbt.addEventListener("click", async () => {
+          if (confirm(`Remove shared challenge: ${g.exercise}? NOTE: This deletes it for everyone.`)) {
+            await fe.deleteChallenge(g.id);
+            await this.renderDashboard();
+          }
+        });
+      } else {
+        Dbt.setAttribute("title", "Leave Challenge");
+        Dbt.innerHTML = "Leave";
+        Dbt.style.fontSize = "0.75em";
+        Dbt.style.padding = "2px 6px";
+        Dbt.style.borderRadius = "4px";
+        Dbt.addEventListener("click", async () => {
+          if (confirm(`Leave challenge: ${g.exercise}? You can rejoin later and your data will be restored.`)) {
+            await fe.leaveChallenge(g.id, ue.id);
+            await this.renderDashboard();
+          }
+        });
+      }
     // Build streak calendar
     const calendarEl = this.buildStreakCalendar(logDates || [], g.id, g);
     const logActionsEl = u.querySelector(".log-actions");
-    s.insertBefore(calendarEl, logActionsEl);
+    const partNames = (participants || []).map(p => p.name).join(", ");
+    const partEl = document.createElement("div");
+    partEl.style.fontSize = "0.75em";
+    partEl.style.color = "var(--text-secondary)";
+    partEl.style.textAlign = "center";
+    partEl.style.marginTop = "8px";
+    partEl.style.marginBottom = "8px";
+    partEl.innerHTML = `👥 <strong>Participants:</strong> ${partNames}`;
+    s.insertBefore(partEl, logActionsEl);
+    s.insertBefore(calendarEl, partEl);
     const o = u.querySelector(".log-btn"),
       y = u.querySelector(".log-input");
     return (
@@ -7942,7 +7980,7 @@ const qr = {
     });
     return wrapper;
   },
-  createAvailableChallengeCard(g) {
+  createAvailableChallengeCard(g, participants) {
     const a = document
         .getElementById("available-challenge-card-template")
         .content.cloneNode(!0),
@@ -7956,7 +7994,14 @@ const qr = {
     const s = g.exercise.toLowerCase() === "planks";
     a.querySelector(".measure-type").textContent =
       ` ${s ? "sec" : "reps"} / day`;
+    const partNames = (participants || []).map(p => p.name).join(", ");
+    const partEl = document.createElement("p");
+    partEl.style.fontSize = "0.85em";
+    partEl.style.color = "var(--text-secondary)";
+    partEl.style.marginTop = "0.5rem";
+    partEl.innerHTML = `👥 <strong>Participants:</strong> ${partNames}`;
     const r = a.querySelector(".join-btn");
+    r.parentNode.insertBefore(partEl, r);
     return (
       r.addEventListener("click", async () => {
         ((r.disabled = !0), (r.textContent = "Joining..."));
