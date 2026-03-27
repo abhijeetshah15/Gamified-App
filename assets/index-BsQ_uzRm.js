@@ -7629,6 +7629,23 @@ const qr = {
     this.bindEvents();
     const g = localStorage.getItem("dailyChallengeUser");
     g && ((ue = JSON.parse(g)), this.switchView("dashboard"));
+
+    document.addEventListener("click", function (e) {
+      if (e.target.closest(".btn")) {
+        const btn = e.target.closest(".btn");
+        const rect = btn.getBoundingClientRect();
+        const circle = document.createElement("span");
+        const diameter = Math.max(btn.clientWidth, btn.clientHeight);
+        const radius = diameter / 2;
+        circle.style.width = circle.style.height = `${diameter}px`;
+        circle.style.left = `${e.clientX - rect.left - radius}px`;
+        circle.style.top = `${e.clientY - rect.top - radius}px`;
+        circle.classList.add("ripple");
+        const rip = btn.querySelector(".ripple");
+        if (rip) rip.remove();
+        btn.appendChild(circle);
+      }
+    });
   },
   bindEvents() {
     document.getElementById("nav-dashboard").addEventListener("click", (g) => {
@@ -7764,11 +7781,13 @@ const qr = {
   async renderDashboard() {
     const g = document.getElementById("my-challenges-container"),
       l = document.getElementById("available-challenges-container");
-    ((g.innerHTML =
-      '<div class="loading-spinner" style="grid-column: 1/-1;">Loading your challenges...</div>'),
-      l &&
-        (l.innerHTML =
-          '<div class="loading-spinner" style="grid-column: 1/-1;">Loading available challenges...</div>'));
+    const skeletonHTML = `
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+    `;
+    g.innerHTML = skeletonHTML;
+    if (l) l.innerHTML = skeletonHTML;
     try {
       const a = await fe.getMyChallenges(ue.id),
         u = await fe.getAvailableChallenges(ue.id);
@@ -7819,14 +7838,21 @@ const qr = {
       p = u.querySelector(".circle"),
       v = u.querySelector(".current-reps"),
       n = Math.min((l / g.daily_target) * 100, 100).toFixed(0);
-    ((v.textContent = l),
-      (b.textContent = `${n}%`),
-      setTimeout(() => {
-        (p.setAttribute("stroke-dasharray", `${n}, 100`),
-          n >= 100 &&
-            ((p.style.stroke = "var(--accent-purple)"),
-            (b.style.fill = "var(--accent-purple)")));
-      }, 100));
+
+    this.animateValue(v, 0, l, 800);
+    this.animateValue(b, 0, n, 800, "%");
+    const glowIntensity = Math.min((n / 100) * 8, 8);
+    
+    setTimeout(() => {
+      p.setAttribute("stroke-dasharray", `${n}, 100`);
+      if (n >= 100) {
+        p.style.stroke = "var(--accent-purple)";
+        p.style.filter = "drop-shadow(0 0 15px var(--accent-purple))";
+        b.style.fill = "var(--accent-purple)";
+      } else if (n > 0) {
+        p.style.filter = `drop-shadow(0 0 ${glowIntensity}px var(--accent-cyan))`;
+      }
+    }, 100);
       const Dbt = u.querySelector(".delete-btn");
       if (g.creator_id === ue.id) {
         Dbt.addEventListener("click", async () => {
@@ -7902,6 +7928,22 @@ const qr = {
 
     const o = u.querySelector(".log-btn"),
       y = u.querySelector(".log-input");
+    
+    const card = u.querySelector(".challenge-card");
+    card.addEventListener("mousemove", (e) => {
+      const rect = card.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const rotateX = ((y - rect.height / 2) / (rect.height / 2)) * -8;
+      const rotateY = ((x - rect.width / 2) / (rect.width / 2)) * 8;
+      card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+    });
+    card.addEventListener("mouseleave", () => {
+      card.classList.add("leaving");
+      card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+      setTimeout(() => card.classList.remove("leaving"), 500);
+    });
+
     return (
       y.setAttribute("placeholder", h),
       o.addEventListener("click", async () => {
@@ -8053,6 +8095,21 @@ const qr = {
     partEl.innerHTML = `👥 <strong>Participants:</strong> ${partNames}`;
     const r = a.querySelector(".join-btn");
     r.parentNode.insertBefore(partEl, r);
+
+    u.addEventListener("mousemove", (e) => {
+      const rect = u.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const rotateX = ((y - rect.height / 2) / (rect.height / 2)) * -8;
+      const rotateY = ((x - rect.width / 2) / (rect.width / 2)) * 8;
+      u.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+    });
+    u.addEventListener("mouseleave", () => {
+      u.classList.add("leaving");
+      u.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+      setTimeout(() => u.classList.remove("leaving"), 500);
+    });
+
     return (
       r.addEventListener("click", async () => {
         ((r.disabled = !0), (r.textContent = "Joining..."));
@@ -8128,6 +8185,21 @@ const qr = {
       localStorage.removeItem("dailyChallengeUser"),
       (document.getElementById("password").value = ""),
       this.switchView("login"));
+  },
+  animateValue(obj, start, end, duration, suffix = "") {
+    let startTimestamp = null;
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 4);
+      obj.innerHTML = Math.floor(ease * (end - start) + start) + suffix;
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      } else {
+        obj.innerHTML = end + suffix;
+      }
+    };
+    window.requestAnimationFrame(step);
   },
   playDing(isBig) {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
