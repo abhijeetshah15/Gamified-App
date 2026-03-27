@@ -65,12 +65,20 @@ header {
 }
 nav {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 0.5rem;
   background: #0f172a99;
   padding: 0.5rem;
   border-radius: 2rem;
   border: 1px solid var(--glass-border);
   box-shadow: 0 4px 15px #0003;
+}
+@media (max-width: 600px) {
+  .nav-btn {
+    padding: 0.5rem 1rem !important;
+    font-size: 0.9rem !important;
+  }
 }
 .nav-btn {
   background: transparent;

@@ -7868,8 +7868,38 @@ const qr = {
     partEl.style.marginTop = "8px";
     partEl.style.marginBottom = "8px";
     partEl.innerHTML = `👥 <strong>Participants:</strong> ${partNames}`;
-    s.insertBefore(partEl, logActionsEl);
-    s.insertBefore(calendarEl, partEl);
+
+    const detailsContainer = document.createElement("div");
+    detailsContainer.style.display = "none";
+    detailsContainer.style.width = "100%";
+    detailsContainer.appendChild(partEl);
+    detailsContainer.appendChild(calendarEl);
+
+    const toggleBtn = document.createElement("button");
+    toggleBtn.className = "btn";
+    toggleBtn.style.padding = "4px 8px";
+    toggleBtn.style.fontSize = "0.8em";
+    toggleBtn.style.margin = "8px auto";
+    toggleBtn.style.display = "block";
+    toggleBtn.style.width = "100%";
+    toggleBtn.style.background = "rgba(255, 255, 255, 0.1)";
+    toggleBtn.style.color = "var(--text-secondary)";
+    toggleBtn.style.border = "1px solid rgba(255, 255, 255, 0.2)";
+    toggleBtn.style.borderRadius = "4px";
+    toggleBtn.textContent = "Show Details ▼";
+    toggleBtn.addEventListener("click", () => {
+      if (detailsContainer.style.display === "none") {
+        detailsContainer.style.display = "block";
+        toggleBtn.textContent = "Hide Details ▲";
+      } else {
+        detailsContainer.style.display = "none";
+        toggleBtn.textContent = "Show Details ▼";
+      }
+    });
+
+    s.insertBefore(toggleBtn, logActionsEl);
+    s.insertBefore(detailsContainer, logActionsEl);
+
     const o = u.querySelector(".log-btn"),
       y = u.querySelector(".log-input");
     return (
@@ -7882,7 +7912,6 @@ const qr = {
             await fe.logReps(g.id, ue.id, E);
             const newTotal = parseFloat(l) + E;
             if (l < g.daily_target && newTotal >= g.daily_target) {
-              if (window.confetti) window.confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
               this.showToast("Unstoppable! Daily target crushed! 🔥");
               this.playDing(true);
             } else {
