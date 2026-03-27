@@ -7853,27 +7853,6 @@ const qr = {
         p.style.filter = `drop-shadow(0 0 ${glowIntensity}px var(--accent-cyan))`;
       }
     }, 100);
-      const Dbt = u.querySelector(".delete-btn");
-      if (g.creator_id === ue.id) {
-        Dbt.addEventListener("click", async () => {
-          if (confirm(`Remove shared challenge: ${g.exercise}? NOTE: This deletes it for everyone.`)) {
-            await fe.deleteChallenge(g.id);
-            await this.renderDashboard();
-          }
-        });
-      } else {
-        Dbt.setAttribute("title", "Leave Challenge");
-        Dbt.innerHTML = "Leave";
-        Dbt.style.fontSize = "0.75em";
-        Dbt.style.padding = "2px 6px";
-        Dbt.style.borderRadius = "4px";
-        Dbt.addEventListener("click", async () => {
-          if (confirm(`Leave challenge: ${g.exercise}? You can rejoin later and your data will be restored.`)) {
-            await fe.leaveChallenge(g.id, ue.id);
-            await this.renderDashboard();
-          }
-        });
-      }
     // Build streak calendar
     const calData = this.buildStreakCalendar(logDates || [], g.id, g);
     const calendarEl = calData.element;
@@ -7901,6 +7880,36 @@ const qr = {
     detailsContainer.appendChild(partEl);
     detailsContainer.appendChild(calendarEl);
 
+    const Dbt = u.querySelector(".delete-btn");
+    if (g.creator_id === ue.id) {
+      Dbt.addEventListener("click", async () => {
+        if (confirm(`Remove shared challenge: ${g.exercise}? NOTE: This deletes it for everyone.`)) {
+          await fe.deleteChallenge(g.id);
+          await this.renderDashboard();
+        }
+      });
+    } else {
+      Dbt.style.display = "none";
+      
+      const leaveBtn = document.createElement("button");
+      leaveBtn.className = "btn";
+      leaveBtn.style.marginTop = "15px";
+      leaveBtn.style.padding = "8px";
+      leaveBtn.style.fontSize = "0.85em";
+      leaveBtn.style.background = "transparent";
+      leaveBtn.style.border = "1px solid rgba(239, 68, 68, 0.4)";
+      leaveBtn.style.color = "var(--accent-red)";
+      leaveBtn.style.borderRadius = "8px";
+      leaveBtn.innerHTML = "🚪 Leave Challenge";
+      leaveBtn.addEventListener("click", async () => {
+        if (confirm(`Leave challenge: ${g.exercise}? You can rejoin later and your data will be restored.`)) {
+          await fe.leaveChallenge(g.id, ue.id);
+          await this.renderDashboard();
+        }
+      });
+      detailsContainer.appendChild(leaveBtn);
+    }
+
     const toggleBtn = document.createElement("button");
     toggleBtn.className = "btn";
     toggleBtn.style.padding = "4px 8px";
@@ -7926,8 +7935,7 @@ const qr = {
     s.insertBefore(toggleBtn, logActionsEl);
     s.insertBefore(detailsContainer, logActionsEl);
 
-    const o = u.querySelector(".log-btn"),
-      y = u.querySelector(".log-input");
+    const o = u.querySelector(".log-btn");
     
     const card = u.querySelector(".challenge-card");
     card.addEventListener("mousemove", (e) => {
@@ -7944,34 +7952,56 @@ const qr = {
       setTimeout(() => card.classList.remove("leaving"), 500);
     });
 
-    return (
-      y.setAttribute("placeholder", h),
-      o.addEventListener("click", async () => {
-        const E = parseInt(y.value, 10);
-        if (!(!E || E <= 0)) {
-          ((o.disabled = !0), (o.textContent = "..."));
-          try {
-            await fe.logReps(g.id, ue.id, E);
-            const newTotal = parseFloat(l) + E;
-            if (l < g.daily_target && newTotal >= g.daily_target) {
-              this.showToast("Unstoppable! Daily target crushed! 🔥");
-              this.playDing(true);
-            } else {
-              this.showToast(`Logged ${E} reps! Keep it up! 💪`);
-              this.playDing(false);
-            }
-            y.value = "";
-            await this.renderDashboard();
-          } catch (A) {
-            (console.error(A),
-              alert("Failed to log."),
-              (o.disabled = !1),
-              (o.textContent = "Log"));
+    o.addEventListener("click", () => {
+      const modal = document.getElementById("log-modal");
+      const title = document.getElementById("log-modal-exercise");
+      const input = document.getElementById("log-modal-input");
+      const cancelBtn = document.getElementById("log-modal-cancel");
+      const submitBtn = document.getElementById("log-modal-submit");
+
+      modal.classList.remove("hidden");
+      input.value = "";
+      input.placeholder = h;
+      title.textContent = `Logging: ${g.exercise}`;
+      input.focus();
+
+      const closeAction = () => {
+        modal.classList.add("hidden");
+        cancelBtn.removeEventListener("click", closeAction);
+        submitBtn.removeEventListener("click", submitAction);
+      };
+
+      const submitAction = async () => {
+        const E = parseInt(input.value, 10);
+        if (!E || E <= 0) return;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "...";
+        try {
+          await fe.logReps(g.id, ue.id, E);
+          const newTotal = parseFloat(l) + E;
+          if (l < g.daily_target && newTotal >= g.daily_target) {
+            this.showToast("Unstoppable! Daily target crushed! 🔥");
+            this.playDing(true);
+          } else {
+            this.showToast(`Logged ${E} reps! Keep it up! 💪`);
+            this.playDing(false);
           }
+          await this.renderDashboard();
+          closeAction();
+        } catch (A) {
+          console.error(A);
+          alert("Failed to log.");
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Log";
         }
-      }),
-      s
-    );
+      };
+
+      cancelBtn.addEventListener("click", closeAction);
+      submitBtn.addEventListener("click", submitAction);
+    });
+
+    return s;
   },
   buildStreakCalendar(logDates, challengeId, challenge) {
     const activeDates = new Set(logDates.map(d => {

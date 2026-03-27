@@ -375,10 +375,8 @@ input[type="number"]::-webkit-outer-spin-button {
   font-weight: 700;
 }
 .log-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   width: 100%;
-  gap: 0.8rem;
   margin-top: 0.5rem;
 }
 .log-input {

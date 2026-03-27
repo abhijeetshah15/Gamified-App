@@ -227,14 +227,7 @@
           </div>
         </div>
         <div class="log-actions">
-          <input
-            type="number"
-            class="log-input"
-            placeholder="Reps"
-            min="1"
-            required
-          />
-          <button class="btn accent-btn log-btn">Log</button>
+          <button class="btn accent-btn log-btn">Log Progress</button>
         </div>
       </div>
     </template>
@@ -277,5 +270,18 @@
     </template>
 
     <div id="toast-container" class="toast-container"></div>
+    
+    <!-- Global Log Modal -->
+    <div id="log-modal" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
+      <div class="glass-card" style="width: 90%; max-width: 350px; text-align: center;">
+        <h3 style="margin-bottom: 0.5rem; font-size: 1.6rem; color: #fff;">Log Progress</h3>
+        <p id="log-modal-exercise" style="margin-bottom: 1.5rem; color: var(--accent-cyan); font-weight: 600; font-size: 1.1rem;"></p>
+        <input type="number" id="log-modal-input" placeholder="Reps" min="1" style="width: 100%; margin-bottom: 1.5rem; font-size: 1.5rem; text-align: center; padding: 1rem; border-radius: 12px; background: rgba(0,0,0,0.4); color: #fff; border: 2px solid var(--accent-cyan);" />
+        <div style="display: flex; gap: 1rem;">
+          <button id="log-modal-cancel" class="btn secondary-btn">Cancel</button>
+          <button id="log-modal-submit" class="btn accent-btn">Log</button>
+        </div>
+      </div>
+    </div>
   </body>
 </html>
