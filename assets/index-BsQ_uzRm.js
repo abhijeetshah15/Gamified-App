@@ -7849,7 +7849,16 @@ const qr = {
         });
       }
     // Build streak calendar
-    const calendarEl = this.buildStreakCalendar(logDates || [], g.id, g);
+    const calData = this.buildStreakCalendar(logDates || [], g.id, g);
+    const calendarEl = calData.element;
+    const currentStreak = calData.streak;
+
+    if (currentStreak >= 3) {
+      s.classList.add("on-fire");
+      const en = u.querySelector(".exercise-name");
+      if (!en.innerHTML.includes("🔥")) en.innerHTML += " 🔥";
+    }
+
     const logActionsEl = u.querySelector(".log-actions");
     const partNames = (participants || []).map(p => p.name).join(", ");
     const partEl = document.createElement("div");
@@ -7870,9 +7879,18 @@ const qr = {
         if (!(!E || E <= 0)) {
           ((o.disabled = !0), (o.textContent = "..."));
           try {
-            (await fe.logReps(g.id, ue.id, E),
-              (y.value = ""),
-              await this.renderDashboard());
+            await fe.logReps(g.id, ue.id, E);
+            const newTotal = parseFloat(l) + E;
+            if (l < g.daily_target && newTotal >= g.daily_target) {
+              if (window.confetti) window.confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+              this.showToast("Unstoppable! Daily target crushed! 🔥");
+              this.playDing(true);
+            } else {
+              this.showToast(`Logged ${E} reps! Keep it up! 💪`);
+              this.playDing(false);
+            }
+            y.value = "";
+            await this.renderDashboard();
           } catch (A) {
             (console.error(A),
               alert("Failed to log."),
@@ -7970,6 +7988,10 @@ const qr = {
           await fe.deleteLogsForDate(challengeId, ue.id, dateStr);
           if (newReps > 0) {
             await fe.logRepsForDate(challengeId, ue.id, newReps, dateStr);
+            self.showToast(`Updated log to ${newReps} reps!`);
+            self.playDing(false);
+          } else {
+            self.showToast(`Cleared log for that date.`);
           }
           await self.renderDashboard();
         } catch (err) {
@@ -7978,7 +8000,7 @@ const qr = {
         }
       });
     });
-    return wrapper;
+    return { element: wrapper, streak };
   },
   createAvailableChallengeCard(g, participants) {
     const a = document
@@ -8051,15 +8073,18 @@ const qr = {
       }
       const s = u
         .map(
-          (r, h) => `
-        <div class="leaderboard-item rank-${h + 1}">
-          <div class="player-info">
-            <div class="rank-badge">${h + 1}</div>
-            <div class="player-name">${r.name}</div>
-          </div>
-          <div class="player-score">${r.total_reps}</div>
-        </div>
-      `,
+          (r, h) => {
+            const rank = this.getRank(parseInt(r.total_reps) || 0);
+            return `
+            <div class="leaderboard-item rank-${h + 1}">
+              <div class="player-info">
+                <div class="rank-badge">${h + 1}</div>
+                <div class="player-name">${r.name} <span style="font-size:0.75em; color:${rank.color}; margin-left: 6px; padding: 2px 4px; border: 1px solid ${rank.color}; border-radius: 4px; display: inline-block; white-space: nowrap;">${rank.badge} ${rank.title}</span></div>
+              </div>
+              <div class="player-score">${r.total_reps}</div>
+            </div>
+            `;
+          }
         )
         .join("");
       g.innerHTML = `<div class="leaderboard-list">${s}</div>`;
@@ -8074,6 +8099,49 @@ const qr = {
       localStorage.removeItem("dailyChallengeUser"),
       (document.getElementById("password").value = ""),
       this.switchView("login"));
+  },
+  playDing(isBig) {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    osc.type = "sine";
+    if (isBig) {
+      osc.frequency.setValueAtTime(400, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.1);
+      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.2);
+      gainNode.gain.setValueAtTime(0.5, ctx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.8);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.8);
+    } else {
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+    }
+  },
+  showToast(msg) {
+    let container = document.getElementById("toast-container");
+    if (!container) return;
+    const toast = document.createElement("div");
+    toast.className = "toast-msg";
+    toast.textContent = msg;
+    container.appendChild(toast);
+    setTimeout(() => toast.classList.add("show"), 10);
+    setTimeout(() => {
+      toast.classList.remove("show");
+      setTimeout(() => toast.remove(), 400);
+    }, 3000);
+  },
+  getRank(reps) {
+    if (reps >= 5000) return { title: "Titan", badge: "💎", color: "#e0f2fe" };
+    if (reps >= 2000) return { title: "Champion", badge: "🥇", color: "#fef08a" };
+    if (reps >= 500) return { title: "Warrior", badge: "🥈", color: "#cbd5e1" };
+    return { title: "Novice", badge: "🥉", color: "#fed7aa" };
   },
 };
 document.addEventListener("DOMContentLoaded", () => {

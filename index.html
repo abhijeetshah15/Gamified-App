@@ -15,6 +15,44 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap"
       rel="stylesheet"
     />
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+      @keyframes fireGlow {
+        0% { box-shadow: 0 0 10px rgba(255, 69, 0, 0.5), inset 0 0 5px rgba(255, 69, 0, 0.4); border-color: #ff4500; }
+        50% { box-shadow: 0 0 20px rgba(255, 140, 0, 0.8), inset 0 0 10px rgba(255, 140, 0, 0.6); border-color: #ff8c00; }
+        100% { box-shadow: 0 0 10px rgba(255, 69, 0, 0.5), inset 0 0 5px rgba(255, 69, 0, 0.4); border-color: #ff4500; }
+      }
+      .on-fire {
+        animation: fireGlow 1.5s infinite alternate !important;
+        border: 2px solid #ff4500 !important;
+        position: relative;
+        overflow: visible;
+      }
+      .toast-container {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        pointer-events: none;
+      }
+      .toast-msg {
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        border-left: 4px solid var(--accent-cyan);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        font-weight: 500;
+        transform: translateX(120%);
+        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+      .toast-msg.show {
+        transform: translateX(0);
+      }
+    </style>
     <script type="module" crossorigin src="/assets/index-BsQ_uzRm.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-BvEr4qZa.css" />
   </head>
@@ -238,5 +276,7 @@
         <button class="btn primary-btn join-btn mt-4">Join Challenge</button>
       </div>
     </template>
+
+    <div id="toast-container" class="toast-container"></div>
   </body>
 </html>
