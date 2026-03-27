@@ -7521,7 +7521,7 @@ buffer/index.js:
       const r = (
         await he`
       INSERT INTO global_challenges (creator_id, exercise, daily_target, duration_days, frequency) 
-      VALUES (${g}, ${l}, ${a}, ${u}, ${freq || 'Daily'}) 
+      VALUES (${g}, ${l}, ${a}, ${u}, ${freq || "Daily"}) 
       RETURNING *
     `
       )[0];
@@ -7572,6 +7572,17 @@ buffer/index.js:
       ORDER BY total_reps DESC
     `;
     },
+    async getOverallLeaderboard(exercise) {
+      return await he`
+      SELECT u.name, SUM(l.reps) as total_reps
+      FROM logs l
+      JOIN users u ON u.id = l.user_id
+      JOIN global_challenges c ON c.id = l.challenge_id
+      WHERE c.exercise = ${exercise}
+      GROUP BY u.name
+      ORDER BY total_reps DESC
+    `;
+    },
     async deleteChallenge(g) {
       return await he`DELETE FROM global_challenges WHERE id = ${g}`;
     },
@@ -7601,11 +7612,13 @@ buffer/index.js:
       return parseInt(r[0]?.total_reps || 0);
     },
     async logRepsForDate(challengeId, userId, reps, dateStr) {
-      return (await he`
+      return (
+        await he`
         INSERT INTO logs (challenge_id, user_id, reps, log_date)
         VALUES (${challengeId}, ${userId}, ${reps}, ${dateStr})
         RETURNING *
-      `)[0];
+      `
+      )[0];
     },
     async deleteLogsForDate(challengeId, userId, dateStr) {
       return await he`
@@ -7614,11 +7627,12 @@ buffer/index.js:
       `;
     },
     async createUser(name) {
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-      let pwd = '';
-      for (let i = 0; i < 8; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+      let pwd = "";
+      for (let i = 0; i < 8; i++)
+        pwd += chars.charAt(Math.floor(Math.random() * chars.length));
       const existing = await he`SELECT id FROM users WHERE name = ${name}`;
-      if (existing.length > 0) throw new Error('User already exists');
+      if (existing.length > 0) throw new Error("User already exists");
       await he`INSERT INTO users (name, password) VALUES (${name}, ${pwd})`;
       return pwd;
     },
@@ -7649,71 +7663,82 @@ const qr = {
   },
   bindEvents() {
     document.getElementById("nav-dashboard").addEventListener("click", (g) => {
-      this.switchView("dashboard"); this.setActiveNav(g.target);
+      this.switchView("dashboard");
+      this.setActiveNav(g.target);
     });
-    document.getElementById("nav-leaderboard").addEventListener("click", (g) => {
-      this.switchView("leaderboard"); this.setActiveNav(g.target);
-    });
+    document
+      .getElementById("nav-leaderboard")
+      .addEventListener("click", (g) => {
+        this.switchView("leaderboard");
+        this.setActiveNav(g.target);
+      });
     document.getElementById("nav-logout").addEventListener("click", () => {
       this.logout();
     });
-    document.getElementById("login-form").addEventListener("submit", async (g) => {
-      g.preventDefault();
-      const l = document.getElementById("username").value,
-        a = document.getElementById("password").value,
-        u = document.getElementById("login-error"),
-        s = g.target.querySelector("button");
-      s.disabled = true;
-      s.textContent = "Logging in...";
-      u.textContent = "";
-      try {
-        const r = await fe.authenticate(l, a);
-        if (r) {
-          ue = r;
-          localStorage.setItem("dailyChallengeUser", JSON.stringify(r));
-          this.switchView("dashboard");
-        } else {
-          u.textContent = "Invalid credentials. Please try again.";
-        }
-      } catch (r) {
-        u.textContent = "Network error. Please make sure database is initialized.";
-        console.error(r);
-      } finally {
-        s.disabled = false;
-        s.textContent = "Login";
-      }
-    });
-    document.getElementById("add-challenge-form").addEventListener("submit", async (g) => {
-      g.preventDefault();
-      const l = document.getElementById("new-target"),
-        a = document.getElementById("new-duration"),
-        u = document.getElementById("new-exercise"),
-        freqEl = document.getElementById("new-frequency"),
-        s = parseInt(l.value, 10),
-        r = parseInt(a.value, 10),
-        h = u.value,
-        freq = freqEl ? freqEl.value : 'Daily',
-        i = g.target.querySelector("button");
-      if (s && s > 0 && r && r > 0) {
-        i.disabled = true;
-        i.textContent = "Creating...";
+    document
+      .getElementById("login-form")
+      .addEventListener("submit", async (g) => {
+        g.preventDefault();
+        const l = document.getElementById("username").value,
+          a = document.getElementById("password").value,
+          u = document.getElementById("login-error"),
+          s = g.target.querySelector("button");
+        s.disabled = true;
+        s.textContent = "Logging in...";
+        u.textContent = "";
         try {
-          await fe.createChallenge(ue.id, h, s, r, freq);
-          l.value = "";
-          a.value = "90";
-          await this.renderDashboard();
-        } catch (d) {
-          console.error("Error creating challenge:", d);
-          alert("Failed to create challenge. It may already exist.");
+          const r = await fe.authenticate(l, a);
+          if (r) {
+            ue = r;
+            localStorage.setItem("dailyChallengeUser", JSON.stringify(r));
+            this.switchView("dashboard");
+          } else {
+            u.textContent = "Invalid credentials. Please try again.";
+          }
+        } catch (r) {
+          u.textContent =
+            "Network error. Please make sure database is initialized.";
+          console.error(r);
         } finally {
-          i.disabled = false;
-          i.textContent = "Create";
+          s.disabled = false;
+          s.textContent = "Login";
         }
-      }
-    });
-    document.getElementById("leaderboard-challenge").addEventListener("change", () => {
-      this.renderLeaderboard();
-    });
+      });
+    document
+      .getElementById("add-challenge-form")
+      .addEventListener("submit", async (g) => {
+        g.preventDefault();
+        const l = document.getElementById("new-target"),
+          a = document.getElementById("new-duration"),
+          u = document.getElementById("new-exercise"),
+          freqEl = document.getElementById("new-frequency"),
+          s = parseInt(l.value, 10),
+          r = parseInt(a.value, 10),
+          h = u.value,
+          freq = freqEl ? freqEl.value : "Daily",
+          i = g.target.querySelector("button");
+        if (s && s > 0 && r && r > 0) {
+          i.disabled = true;
+          i.textContent = "Creating...";
+          try {
+            await fe.createChallenge(ue.id, h, s, r, freq);
+            l.value = "";
+            a.value = "90";
+            await this.renderDashboard();
+          } catch (d) {
+            console.error("Error creating challenge:", d);
+            alert("Failed to create challenge. It may already exist.");
+          } finally {
+            i.disabled = false;
+            i.textContent = "Create";
+          }
+        }
+      });
+    document
+      .getElementById("leaderboard-challenge")
+      .addEventListener("change", () => {
+        this.renderLeaderboard();
+      });
     const createUserForm = document.getElementById("create-user-form");
     if (createUserForm) {
       createUserForm.addEventListener("submit", async (g) => {
@@ -7723,17 +7748,19 @@ const qr = {
         const btn = g.target.querySelector("button");
         const newName = nameInput.value.trim();
         if (!newName) return;
-        btn.disabled = true; btn.textContent = "Creating...";
+        btn.disabled = true;
+        btn.textContent = "Creating...";
         credOutput.textContent = "";
         try {
           const pwd = await fe.createUser(newName);
           credOutput.textContent = `✅ Created! Username: ${newName} | Password: ${pwd}`;
           nameInput.value = "";
         } catch (err) {
-          credOutput.textContent = `❌ ${err.message || 'Failed to create user.'}`;
+          credOutput.textContent = `❌ ${err.message || "Failed to create user."}`;
           console.error(err);
         } finally {
-          btn.disabled = false; btn.textContent = "Create User";
+          btn.disabled = false;
+          btn.textContent = "Create User";
         }
       });
     }
@@ -7762,10 +7789,10 @@ const qr = {
           `Hello, ${ue.name}`));
       const adminSection = document.getElementById("admin-create-user");
       if (adminSection) {
-        if (ue.name === 'Abhi' || ue.name === 'Elish') {
-          adminSection.classList.remove('hidden');
+        if (ue.name === "Abhi" || ue.name === "Elish") {
+          adminSection.classList.remove("hidden");
         } else {
-          adminSection.classList.add('hidden');
+          adminSection.classList.add("hidden");
         }
       }
       await this.renderDashboard();
@@ -7827,13 +7854,18 @@ const qr = {
     ((u.querySelector(".exercise-name").textContent = g.exercise),
       (u.querySelector(".target-reps").textContent = `${g.daily_target}`));
     const freqSpan = u.querySelector(".challenge-freq");
-    if (freqSpan) freqSpan.textContent = g.frequency || 'Daily';
+    if (freqSpan) freqSpan.textContent = g.frequency || "Daily";
     const i = new Date(g.start_date || g.created_at),
       w = new Date().getTime() - i.getTime();
     let m = Math.floor(w / (1e3 * 3600 * 24)) + 1;
-    (m < 1 && (m = 1),
-      (u.querySelector(".days-elapsed").textContent = m),
-      (u.querySelector(".total-days").textContent = g.duration_days));
+    let isCompleted = false;
+    if (m < 1) m = 1;
+    if (m > g.duration_days) {
+      m = g.duration_days;
+      isCompleted = true;
+    }
+    u.querySelector(".days-elapsed").textContent = m;
+    u.querySelector(".total-days").textContent = g.duration_days;
     const b = u.querySelector(".percentage"),
       p = u.querySelector(".circle"),
       v = u.querySelector(".current-reps"),
@@ -7842,7 +7874,7 @@ const qr = {
     this.animateValue(v, 0, l, 800);
     this.animateValue(b, 0, n, 800, "%");
     const glowIntensity = Math.min((n / 100) * 8, 8);
-    
+
     setTimeout(() => {
       p.setAttribute("stroke-dasharray", `${n}, 100`);
       if (n >= 100) {
@@ -7865,7 +7897,7 @@ const qr = {
     }
 
     const logActionsEl = u.querySelector(".log-actions");
-    const partNames = (participants || []).map(p => p.name).join(", ");
+    const partNames = (participants || []).map((p) => p.name).join(", ");
     const partEl = document.createElement("div");
     partEl.style.fontSize = "0.75em";
     partEl.style.color = "var(--text-secondary)";
@@ -7883,14 +7915,18 @@ const qr = {
     const Dbt = u.querySelector(".delete-btn");
     if (g.creator_id === ue.id) {
       Dbt.addEventListener("click", async () => {
-        if (confirm(`Remove shared challenge: ${g.exercise}? NOTE: This deletes it for everyone.`)) {
+        if (
+          confirm(
+            `Remove shared challenge: ${g.exercise}? NOTE: This deletes it for everyone.`,
+          )
+        ) {
           await fe.deleteChallenge(g.id);
           await this.renderDashboard();
         }
       });
     } else {
       Dbt.style.display = "none";
-      
+
       const leaveBtn = document.createElement("button");
       leaveBtn.className = "btn";
       leaveBtn.style.marginTop = "15px";
@@ -7902,7 +7938,11 @@ const qr = {
       leaveBtn.style.borderRadius = "8px";
       leaveBtn.innerHTML = "🚪 Leave Challenge";
       leaveBtn.addEventListener("click", async () => {
-        if (confirm(`Leave challenge: ${g.exercise}? You can rejoin later and your data will be restored.`)) {
+        if (
+          confirm(
+            `Leave challenge: ${g.exercise}? You can rejoin later and your data will be restored.`,
+          )
+        ) {
           await fe.leaveChallenge(g.id, ue.id);
           await this.renderDashboard();
         }
@@ -7936,7 +7976,47 @@ const qr = {
     s.insertBefore(detailsContainer, logActionsEl);
 
     const o = u.querySelector(".log-btn");
-    
+
+    if (isCompleted) {
+      o.textContent = "Completed 🎉";
+      o.style.background = "var(--accent-purple)";
+      o.style.color = "white";
+      o.style.border = "none";
+      o.disabled = true;
+      o.style.cursor = "not-allowed";
+      o.classList.remove("accent-btn");
+      o.style.boxShadow = "none";
+    }
+
+    const lbBtn = document.createElement("button");
+    lbBtn.className = "btn secondary-btn";
+    lbBtn.style.marginTop = "10px";
+    lbBtn.style.width = "100%";
+    lbBtn.style.padding = "8px";
+    lbBtn.style.fontSize = "0.9em";
+    lbBtn.textContent = "🏆 View Leaderboard";
+    lbBtn.addEventListener("click", () => {
+      const lbDrop = document.getElementById("leaderboard-challenge");
+      let found = false;
+      for (let idx = 0; idx < lbDrop.options.length; idx++) {
+        if (lbDrop.options[idx].value == g.id) {
+          found = true; break;
+        }
+      }
+      if (!found) {
+        const opt = document.createElement("option");
+        opt.value = g.id;
+        opt.textContent = `Challenge: ${g.exercise} (${g.duration_days} days)`;
+        lbDrop.appendChild(opt);
+      }
+      lbDrop.value = g.id;
+      qr.switchView("leaderboard");
+      qr.renderLeaderboard();
+      document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+      document.getElementById("nav-leaderboard").classList.add("active");
+    });
+    detailsContainer.appendChild(lbBtn);
+
     const card = u.querySelector(".challenge-card");
     card.addEventListener("mousemove", (e) => {
       const rect = card.getBoundingClientRect();
@@ -7952,6 +8032,7 @@ const qr = {
       setTimeout(() => card.classList.remove("leaving"), 500);
     });
 
+    if (!isCompleted) {
     o.addEventListener("click", () => {
       const modal = document.getElementById("log-modal");
       const title = document.getElementById("log-modal-exercise");
@@ -8000,14 +8081,17 @@ const qr = {
       cancelBtn.addEventListener("click", closeAction);
       submitBtn.addEventListener("click", submitAction);
     });
+    }
 
     return s;
   },
   buildStreakCalendar(logDates, challengeId, challenge) {
-    const activeDates = new Set(logDates.map(d => {
-      const dt = new Date(d.log_date);
-      return `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
-    }));
+    const activeDates = new Set(
+      logDates.map((d) => {
+        const dt = new Date(d.log_date);
+        return `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
+      }),
+    );
     // Calculate streak
     let streak = 0;
     const today = new Date();
@@ -8016,7 +8100,11 @@ const qr = {
       const checkDate = new Date(today);
       checkDate.setDate(checkDate.getDate() - i);
       const key = `${checkDate.getFullYear()}-${checkDate.getMonth()}-${checkDate.getDate()}`;
-      if (activeDates.has(key)) { streak++; } else if (i > 0) { break; }
+      if (activeDates.has(key)) {
+        streak++;
+      } else if (i > 0) {
+        break;
+      }
     }
     // Determine challenge date range
     const startDate = new Date(challenge.start_date || challenge.created_at);
@@ -8024,20 +8112,37 @@ const qr = {
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + (challenge.duration_days || 90) - 1);
     const now = new Date();
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
     // Group challenge days by month
     const months = new Map();
     const cursor = new Date(startDate);
     while (cursor <= endDate) {
       const mKey = `${cursor.getFullYear()}-${cursor.getMonth()}`;
       if (!months.has(mKey)) {
-        months.set(mKey, { year: cursor.getFullYear(), month: cursor.getMonth(), days: [] });
+        months.set(mKey, {
+          year: cursor.getFullYear(),
+          month: cursor.getMonth(),
+          days: [],
+        });
       }
       months.get(mKey).days.push(cursor.getDate());
       cursor.setDate(cursor.getDate() + 1);
     }
-    const wrapper = document.createElement('div');
-    wrapper.className = 'streak-calendar';
+    const wrapper = document.createElement("div");
+    wrapper.className = "streak-calendar";
     let html = `<div class="streak-header">
       <span class="streak-month">${monthNames[startDate.getMonth()]} ${startDate.getFullYear()} → ${monthNames[endDate.getMonth()]} ${endDate.getFullYear()}</span>
       <span class="streak-count">${streak} day streak \ud83d\udd25</span>
@@ -8047,8 +8152,11 @@ const qr = {
       const firstDayOfWeek = new Date(year, month, 1).getDay();
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       html += `<div class="cal-month-label">${monthNames[month]} ${year}</div><div class="cal-grid">`;
-      html += '<span class="cal-day-label">S</span><span class="cal-day-label">M</span><span class="cal-day-label">T</span><span class="cal-day-label">W</span><span class="cal-day-label">T</span><span class="cal-day-label">F</span><span class="cal-day-label">S</span>';
-      html += Array(firstDayOfWeek).fill('<span class="cal-cell empty"></span>').join('');
+      html +=
+        '<span class="cal-day-label">S</span><span class="cal-day-label">M</span><span class="cal-day-label">T</span><span class="cal-day-label">W</span><span class="cal-day-label">T</span><span class="cal-day-label">F</span><span class="cal-day-label">S</span>';
+      html += Array(firstDayOfWeek)
+        .fill('<span class="cal-cell empty"></span>')
+        .join("");
       const daysSet = new Set(days);
       for (let d = 1; d <= daysInMonth; d++) {
         if (!daysSet.has(d)) {
@@ -8057,31 +8165,38 @@ const qr = {
         }
         const key = `${year}-${month}-${d}`;
         const isActive = activeDates.has(key);
-        const isToday = d === now.getDate() && month === now.getMonth() && year === now.getFullYear();
+        const isToday =
+          d === now.getDate() &&
+          month === now.getMonth() &&
+          year === now.getFullYear();
         const cellDate = new Date(year, month, d);
         const isFuture = cellDate > now;
-        let cls = 'cal-cell';
-        if (isActive) cls += ' active';
-        if (isToday) cls += ' today';
-        if (!isFuture) cls += ' clickable';
+        let cls = "cal-cell";
+        if (isActive) cls += " active";
+        if (isToday) cls += " today";
+        if (!isFuture) cls += " clickable";
         html += `<span class="${cls}" data-day="${d}" data-month="${month}" data-year="${year}">${d}</span>`;
       }
-      html += '</div>';
+      html += "</div>";
     }
     wrapper.innerHTML = html;
     // Add click handlers
     const self = this;
-    wrapper.querySelectorAll('.cal-cell.clickable').forEach(cell => {
-      cell.addEventListener('click', async () => {
+    wrapper.querySelectorAll(".cal-cell.clickable").forEach((cell) => {
+      cell.addEventListener("click", async () => {
         const day = parseInt(cell.dataset.day);
         const cMonth = parseInt(cell.dataset.month);
         const cYear = parseInt(cell.dataset.year);
-        const dateStr = `${cYear}-${String(cMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dateStr = `${cYear}-${String(cMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
         try {
-          const currentReps = await fe.getDateProgress(challengeId, ue.id, dateStr);
+          const currentReps = await fe.getDateProgress(
+            challengeId,
+            ue.id,
+            dateStr,
+          );
           const input = prompt(
             `${monthNames[cMonth]} ${day} — Current: ${currentReps} reps\n\nEnter new total (0 to clear):`,
-            String(currentReps)
+            String(currentReps),
           );
           if (input === null) return;
           const newReps = parseInt(input);
@@ -8097,7 +8212,7 @@ const qr = {
           await self.renderDashboard();
         } catch (err) {
           console.error(err);
-          alert('Failed to update log.');
+          alert("Failed to update log.");
         }
       });
     });
@@ -8113,11 +8228,11 @@ const qr = {
       (a.querySelector(".total-days").textContent = g.duration_days),
       (a.querySelector(".creator-name").textContent = g.creator_name));
     const freqSpan2 = a.querySelector(".challenge-freq");
-    if (freqSpan2) freqSpan2.textContent = g.frequency || 'Daily';
+    if (freqSpan2) freqSpan2.textContent = g.frequency || "Daily";
     const s = g.exercise.toLowerCase() === "planks";
     a.querySelector(".measure-type").textContent =
       ` ${s ? "sec" : "reps"} / day`;
-    const partNames = (participants || []).map(p => p.name).join(", ");
+    const partNames = (participants || []).map((p) => p.name).join(", ");
     const partEl = document.createElement("p");
     partEl.style.fontSize = "0.85em";
     partEl.style.color = "var(--text-secondary)";
@@ -8157,14 +8272,14 @@ const qr = {
   },
   async populateLeaderboardDropdown() {
     try {
-      const g = await fe.getMyChallenges(ue.id),
-        l = document.getElementById("leaderboard-challenge");
-      l.innerHTML = '<option value="">Select a Challenge</option>';
-      for (const a of g) {
+      const l = document.getElementById("leaderboard-challenge");
+      l.innerHTML = '<option value="">Select an Exercise for Overall Leaderboard</option>';
+      const exercises = ["Pushups", "Pullups", "Crunches", "Squats", "Planks", "Running", "Cycling"];
+      for (const ex of exercises) {
         const u = document.createElement("option");
-        ((u.value = a.id),
-          (u.textContent = `${a.exercise} (${a.duration_days} days)`),
-          l.appendChild(u));
+        u.value = "overall___" + ex;
+        u.textContent = "Overall: " + ex;
+        l.appendChild(u);
       }
     } catch (g) {
       console.error(g);
@@ -8175,23 +8290,28 @@ const qr = {
       l = document.getElementById("leaderboard-challenge").value;
     if (!l) {
       g.innerHTML =
-        '<p style="text-align:center;">Select a challenge to view rankings.</p>';
+        '<p style="text-align:center;">Select an exercise or challenge to view rankings.</p>';
       return;
     }
-    const a = parseInt(l, 10);
     g.innerHTML = '<div class="loading-spinner">Loading Leaderboard...</div>';
     try {
-      const u = await fe.getLeaderboard(a);
+      let u;
+      if (l.startsWith("overall___")) {
+        const exercise = l.split("overall___")[1];
+        u = await fe.getOverallLeaderboard(exercise);
+      } else {
+        const a = parseInt(l, 10);
+        u = await fe.getLeaderboard(a);
+      }
       if (!u || u.length === 0) {
         g.innerHTML =
-          '<p style="text-align:center;">No reps logged yet in this challenge.</p>';
+          '<p style="text-align:center;">No reps logged yet.</p>';
         return;
       }
       const s = u
-        .map(
-          (r, h) => {
-            const rank = this.getRank(parseInt(r.total_reps) || 0);
-            return `
+        .map((r, h) => {
+          const rank = this.getRank(parseInt(r.total_reps) || 0);
+          return `
             <div class="leaderboard-item rank-${h + 1}">
               <div class="player-info">
                 <div class="rank-badge">${h + 1}</div>
@@ -8200,8 +8320,7 @@ const qr = {
               <div class="player-score">${r.total_reps}</div>
             </div>
             `;
-          }
-        )
+        })
         .join("");
       g.innerHTML = `<div class="leaderboard-list">${s}</div>`;
     } catch (u) {
@@ -8270,7 +8389,8 @@ const qr = {
   },
   getRank(reps) {
     if (reps >= 5000) return { title: "Titan", badge: "💎", color: "#e0f2fe" };
-    if (reps >= 2000) return { title: "Champion", badge: "🥇", color: "#fef08a" };
+    if (reps >= 2000)
+      return { title: "Champion", badge: "🥇", color: "#fef08a" };
     if (reps >= 500) return { title: "Warrior", badge: "🥈", color: "#cbd5e1" };
     return { title: "Novice", badge: "🥉", color: "#fed7aa" };
   },
