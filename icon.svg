@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="100" fill="#0f172a"/>
+  <!-- Progress and fitness symbol -->
+  <path d="M 150 350 L 250 200 L 350 300 L 450 100" fill="none" stroke="url(#glow)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="150" cy="350" r="30" fill="#06b6d4" />
+  <circle cx="250" cy="200" r="30" fill="#a855f7" />
+  <circle cx="350" cy="300" r="30" fill="#06b6d4" />
+  <circle cx="450" cy="100" r="30" fill="#a855f7" />
+</svg>
