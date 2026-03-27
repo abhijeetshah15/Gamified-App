@@ -7518,10 +7518,12 @@ buffer/index.js:
     `;
     },
     async createChallenge(g, l, a, u, freq) {
+      const dbDate = new Date();
+      const ldStr = `${dbDate.getFullYear()}-${String(dbDate.getMonth() + 1).padStart(2, '0')}-${String(dbDate.getDate()).padStart(2, '0')}`;
       const r = (
         await he`
-      INSERT INTO global_challenges (creator_id, exercise, daily_target, duration_days, frequency) 
-      VALUES (${g}, ${l}, ${a}, ${u}, ${freq || "Daily"}) 
+      INSERT INTO global_challenges (creator_id, exercise, daily_target, duration_days, frequency, start_date) 
+      VALUES (${g}, ${l}, ${a}, ${u}, ${freq || "Daily"}, ${ldStr}) 
       RETURNING *
     `
       )[0];
@@ -7543,22 +7545,26 @@ buffer/index.js:
       )[0];
     },
     async logReps(g, l, a) {
+      const dbDate = new Date();
+      const ldStr = `${dbDate.getFullYear()}-${String(dbDate.getMonth() + 1).padStart(2, '0')}-${String(dbDate.getDate()).padStart(2, '0')}`;
       return (
         await he`
-      INSERT INTO logs (challenge_id, user_id, reps)
-      VALUES (${g}, ${l}, ${a})
+      INSERT INTO logs (challenge_id, user_id, reps, log_date)
+      VALUES (${g}, ${l}, ${a}, ${ldStr})
       RETURNING *
     `
       )[0];
     },
     async getTodayProgress(g, l) {
       var u;
+      const dbDate = new Date();
+      const ldStr = `${dbDate.getFullYear()}-${String(dbDate.getMonth() + 1).padStart(2, '0')}-${String(dbDate.getDate()).padStart(2, '0')}`;
       const a = await he`
       SELECT SUM(reps) as total_reps 
       FROM logs 
       WHERE challenge_id = ${g}
         AND user_id = ${l} 
-        AND log_date = CURRENT_DATE
+        AND log_date = ${ldStr}
     `;
       return parseInt(((u = a[0]) == null ? void 0 : u.total_reps) || 0);
     },
