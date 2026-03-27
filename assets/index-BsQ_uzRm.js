@@ -8415,11 +8415,11 @@ const qr = {
     }, 3000);
   },
   getRank(reps) {
-    if (reps >= 5000) return { title: "Titan", badge: "💎", color: "#e0f2fe" };
+    if (reps >= 5000) return { title: "Titan", badge: "", color: "#e0f2fe" };
     if (reps >= 2000)
-      return { title: "Champion", badge: "🥇", color: "#fef08a" };
-    if (reps >= 500) return { title: "Warrior", badge: "🥈", color: "#cbd5e1" };
-    return { title: "Novice", badge: "🥉", color: "#fed7aa" };
+      return { title: "Champion", badge: "", color: "#fef08a" };
+    if (reps >= 500) return { title: "Warrior", badge: "", color: "#cbd5e1" };
+    return { title: "Novice", badge: "", color: "#fed7aa" };
   },
 };
 document.addEventListener("DOMContentLoaded", () => {

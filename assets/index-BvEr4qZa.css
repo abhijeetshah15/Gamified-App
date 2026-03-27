@@ -292,9 +292,8 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 .challenges-grid > * {
   flex: 0 0 auto;
-  width: 330px;
-  max-width: 85vw;
-  scroll-snap-align: center;
+  width: min(330px, 75vw);
+  scroll-snap-align: start;
 }
 .challenge-card {
   padding: 1.8rem;
