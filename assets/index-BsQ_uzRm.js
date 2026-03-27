@@ -7995,27 +7995,54 @@ const qr = {
     lbBtn.style.padding = "8px";
     lbBtn.style.fontSize = "0.9em";
     lbBtn.textContent = "🏆 View Leaderboard";
-    lbBtn.addEventListener("click", () => {
-      const lbDrop = document.getElementById("leaderboard-challenge");
-      let found = false;
-      for (let idx = 0; idx < lbDrop.options.length; idx++) {
-        if (lbDrop.options[idx].value == g.id) {
-          found = true; break;
+
+    const lbContainer = document.createElement("div");
+    lbContainer.style.display = "none";
+    lbContainer.style.marginTop = "10px";
+    lbContainer.style.background = "rgba(0,0,0,0.3)";
+    lbContainer.style.borderRadius = "8px";
+    lbContainer.style.padding = "10px";
+    lbContainer.style.maxHeight = "200px";
+    lbContainer.style.overflowY = "auto";
+
+    lbBtn.addEventListener("click", async () => {
+      if (lbContainer.style.display === "none") {
+        lbContainer.style.display = "block";
+        lbBtn.textContent = "Hide Leaderboard";
+        lbContainer.innerHTML = '<div class="loading-spinner" style="font-size:0.8em; margin: 10px 0;">Loading...</div>';
+        try {
+          const u = await fe.getLeaderboard(g.id);
+          if (!u || u.length === 0) {
+            lbContainer.innerHTML = '<p style="text-align:center;font-size:0.85em;margin:0;color:var(--text-secondary);">No reps logged yet.</p>';
+            return;
+          }
+          const s = u
+            .map((r, h) => {
+              const rank = this.getRank(parseInt(r.total_reps) || 0);
+              return `
+                <div class="leaderboard-item rank-${h + 1}" style="padding: 6px; margin-bottom: 4px; font-size: 0.85em; background: rgba(255,255,255,0.05);">
+                  <div class="player-info" style="gap: 8px;">
+                    <div class="rank-badge" style="width:20px;height:20px;font-size:0.8em;line-height:20px;">${h + 1}</div>
+                    <div class="player-name">${r.name} <span style="font-size:0.7em; color:${rank.color}; margin-left: 4px;">${rank.badge}</span></div>
+                  </div>
+                  <div class="player-score" style="font-size:1em;">${r.total_reps}</div>
+                </div>
+                `;
+            })
+            .join("");
+          lbContainer.innerHTML = `<div class="leaderboard-list" style="gap:4px;">${s}</div>`;
+        } catch (err) {
+          console.error(err);
+          lbContainer.innerHTML = '<p class="error-text" style="font-size:0.8em;margin:0;">Failed to load leaderboard.</p>';
         }
+      } else {
+        lbContainer.style.display = "none";
+        lbBtn.textContent = "🏆 View Leaderboard";
       }
-      if (!found) {
-        const opt = document.createElement("option");
-        opt.value = g.id;
-        opt.textContent = `Challenge: ${g.exercise} (${g.duration_days} days)`;
-        lbDrop.appendChild(opt);
-      }
-      lbDrop.value = g.id;
-      qr.switchView("leaderboard");
-      qr.renderLeaderboard();
-      document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
-      document.getElementById("nav-leaderboard").classList.add("active");
     });
+
     detailsContainer.appendChild(lbBtn);
+    detailsContainer.appendChild(lbContainer);
 
     const card = u.querySelector(".challenge-card");
     card.addEventListener("mousemove", (e) => {
