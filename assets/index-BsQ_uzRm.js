@@ -8044,20 +8044,7 @@ const qr = {
     detailsContainer.appendChild(lbBtn);
     detailsContainer.appendChild(lbContainer);
 
-    const card = u.querySelector(".challenge-card");
-    card.addEventListener("mousemove", (e) => {
-      const rect = card.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const rotateX = ((y - rect.height / 2) / (rect.height / 2)) * -8;
-      const rotateY = ((x - rect.width / 2) / (rect.width / 2)) * 8;
-      card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
-    });
-    card.addEventListener("mouseleave", () => {
-      card.classList.add("leaving");
-      card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
-      setTimeout(() => card.classList.remove("leaving"), 500);
-    });
+
 
     if (!isCompleted) {
     o.addEventListener("click", () => {
@@ -8268,19 +8255,7 @@ const qr = {
     const r = a.querySelector(".join-btn");
     r.parentNode.insertBefore(partEl, r);
 
-    u.addEventListener("mousemove", (e) => {
-      const rect = u.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const rotateX = ((y - rect.height / 2) / (rect.height / 2)) * -8;
-      const rotateY = ((x - rect.width / 2) / (rect.width / 2)) * 8;
-      u.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
-    });
-    u.addEventListener("mouseleave", () => {
-      u.classList.add("leaving");
-      u.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
-      setTimeout(() => u.classList.remove("leaving"), 500);
-    });
+
 
     return (
       r.addEventListener("click", async () => {
