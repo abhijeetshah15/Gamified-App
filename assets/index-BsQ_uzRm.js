@@ -7499,7 +7499,7 @@ buffer/index.js:
     },
     async getMyChallenges(g) {
       return await he`
-      SELECT c.*, p.joined_at
+      SELECT c.*, p.joined_at, c.visibility, c.invite_code
       FROM global_challenges c
       JOIN participants p ON c.id = p.challenge_id
       WHERE p.user_id = ${g}
@@ -7514,16 +7514,24 @@ buffer/index.js:
       WHERE c.id NOT IN (
         SELECT challenge_id FROM participants WHERE user_id = ${g}
       )
+      AND (c.visibility IS NULL OR c.visibility = 'public')
       ORDER BY c.created_at DESC
     `;
     },
-    async createChallenge(g, l, a, u, freq) {
+    async createChallenge(g, l, a, u, freq, visibility) {
       const dbDate = new Date();
       const ldStr = `${dbDate.getFullYear()}-${String(dbDate.getMonth() + 1).padStart(2, '0')}-${String(dbDate.getDate()).padStart(2, '0')}`;
+      const vis = visibility || 'public';
+      let inviteCode = null;
+      if (vis === 'private') {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        inviteCode = '';
+        for (let i = 0; i < 6; i++) inviteCode += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
       const r = (
         await he`
-      INSERT INTO global_challenges (creator_id, exercise, daily_target, duration_days, frequency, start_date) 
-      VALUES (${g}, ${l}, ${a}, ${u}, ${freq || "Daily"}, ${ldStr}) 
+      INSERT INTO global_challenges (creator_id, exercise, daily_target, duration_days, frequency, start_date, visibility, invite_code) 
+      VALUES (${g}, ${l}, ${a}, ${u}, ${freq || "Daily"}, ${ldStr}, ${vis}, ${inviteCode}) 
       RETURNING *
     `
       )[0];
@@ -7642,6 +7650,22 @@ buffer/index.js:
       await he`INSERT INTO users (name, password) VALUES (${name}, ${pwd})`;
       return pwd;
     },
+    async joinByCode(code, userId) {
+      const challenges = await he`
+        SELECT c.*, u.name as creator_name
+        FROM global_challenges c
+        JOIN users u ON c.creator_id = u.id
+        WHERE c.invite_code = ${code.toUpperCase()} AND c.visibility = 'private'
+      `;
+      if (challenges.length === 0) return { error: 'Invalid invite code.' };
+      const challenge = challenges[0];
+      const existing = await he`
+        SELECT * FROM participants WHERE challenge_id = ${challenge.id} AND user_id = ${userId}
+      `;
+      if (existing.length > 0) return { error: 'You are already in this challenge!' };
+      await he`INSERT INTO participants (challenge_id, user_id) VALUES (${challenge.id}, ${userId})`;
+      return { success: true, challenge };
+    },
   };
 let ue = null;
 const qr = {
@@ -7718,18 +7742,23 @@ const qr = {
           a = document.getElementById("new-duration"),
           u = document.getElementById("new-exercise"),
           freqEl = document.getElementById("new-frequency"),
+          visEl = document.getElementById("new-visibility"),
           s = parseInt(l.value, 10),
           r = parseInt(a.value, 10),
           h = u.value,
           freq = freqEl ? freqEl.value : "Daily",
+          vis = visEl ? visEl.value : "public",
           i = g.target.querySelector("button");
         if (s && s > 0 && r && r > 0) {
           i.disabled = true;
           i.textContent = "Creating...";
           try {
-            await fe.createChallenge(ue.id, h, s, r, freq);
+            const result = await fe.createChallenge(ue.id, h, s, r, freq, vis);
             l.value = "";
             a.value = "90";
+            if (vis === 'private' && result.invite_code) {
+              this.showToast(`🔒 Private challenge created! Invite code: ${result.invite_code}`);
+            }
             await this.renderDashboard();
           } catch (d) {
             console.error("Error creating challenge:", d);
@@ -7767,6 +7796,37 @@ const qr = {
         } finally {
           btn.disabled = false;
           btn.textContent = "Create User";
+        }
+      });
+    }
+    // Join Private Challenge by Code
+    const joinPrivateForm = document.getElementById("join-private-form");
+    if (joinPrivateForm) {
+      joinPrivateForm.addEventListener("submit", async (g) => {
+        g.preventDefault();
+        const codeInput = document.getElementById("invite-code-input");
+        const errorEl = document.getElementById("join-private-error");
+        const btn = g.target.querySelector("button");
+        const code = codeInput.value.trim().toUpperCase();
+        if (!code) return;
+        btn.disabled = true;
+        btn.textContent = "Joining...";
+        errorEl.textContent = "";
+        try {
+          const result = await fe.joinByCode(code, ue.id);
+          if (result.error) {
+            errorEl.textContent = `❌ ${result.error}`;
+          } else {
+            this.showToast(`🎉 Joined private challenge: ${result.challenge.exercise}!`);
+            codeInput.value = "";
+            await this.renderDashboard();
+          }
+        } catch (err) {
+          errorEl.textContent = `❌ Failed to join. Please try again.`;
+          console.error(err);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Join";
         }
       });
     }
@@ -7857,8 +7917,16 @@ const qr = {
         .content.cloneNode(!0),
       s = u.querySelector(".challenge-card"),
       h = g.exercise.toLowerCase() === "planks" ? "Seconds" : "Reps";
-    ((u.querySelector(".exercise-name").textContent = g.exercise),
-      (u.querySelector(".target-reps").textContent = `${g.daily_target}`));
+    const exName = u.querySelector(".exercise-name");
+    exName.textContent = g.exercise;
+    if (g.visibility === 'private') {
+      const badge = document.createElement("span");
+      badge.className = "private-badge";
+      badge.innerHTML = "🔒 Private";
+      badge.style.cssText = "font-size: 0.55em; padding: 2px 8px; border-radius: 20px; background: rgba(157,0,255,0.2); border: 1px solid rgba(157,0,255,0.5); color: #c084fc; margin-left: 8px; vertical-align: middle; font-weight: 500;";
+      exName.appendChild(badge);
+    }
+    u.querySelector(".target-reps").textContent = `${g.daily_target}`;
     const freqSpan = u.querySelector(".challenge-freq");
     if (freqSpan) freqSpan.textContent = g.frequency || "Daily";
     const i = new Date(g.start_date || g.created_at),
@@ -7902,6 +7970,16 @@ const qr = {
       if (!en.innerHTML.includes("🔥")) en.innerHTML += " 🔥";
     }
 
+    // Private challenge visual distinction
+    if (g.visibility === 'private') {
+      s.style.borderColor = "rgba(157, 0, 255, 0.35)";
+      s.style.boxShadow = "0 8px 32px rgba(0,0,0,0.8), inset 0 0 20px rgba(157, 0, 255, 0.05)";
+      // Override the ::before top bar with an inline pseudo
+      const topBar = document.createElement("div");
+      topBar.style.cssText = "position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #9d00ff, #c084fc); opacity: 0.8; border-radius: 10px 10px 0 0;";
+      s.prepend(topBar);
+    }
+
     const logActionsEl = u.querySelector(".log-actions");
     const partNames = (participants || []).map((p) => p.name).join(", ");
     const partEl = document.createElement("div");
@@ -7917,6 +7995,29 @@ const qr = {
     detailsContainer.style.width = "100%";
     detailsContainer.appendChild(partEl);
     detailsContainer.appendChild(calendarEl);
+
+    // Invite Code section for private challenges
+    if (g.visibility === 'private' && g.invite_code && g.creator_id === ue.id) {
+      const codeSection = document.createElement("div");
+      codeSection.style.cssText = "margin-top: 12px; padding: 12px; background: rgba(157,0,255,0.1); border: 1px solid rgba(157,0,255,0.3); border-radius: 10px; text-align: center;";
+      codeSection.innerHTML = `
+        <p style="font-size: 0.8em; color: var(--text-secondary); margin-bottom: 6px;">Invite Code</p>
+        <span style="font-family: 'Courier New', monospace; font-size: 1.5rem; font-weight: 800; letter-spacing: 5px; color: #c084fc;">${g.invite_code}</span>
+      `;
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "btn";
+      copyBtn.style.cssText = "margin-top: 8px; padding: 6px 16px; font-size: 0.85em; background: rgba(157,0,255,0.25); color: #c084fc; border: 1px solid rgba(157,0,255,0.4); border-radius: 8px; width: auto; display: inline-block;";
+      copyBtn.textContent = "📋 Copy Code";
+      copyBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(g.invite_code).then(() => {
+          this.showToast("Invite code copied to clipboard! 📋");
+          copyBtn.textContent = "✅ Copied!";
+          setTimeout(() => { copyBtn.textContent = "📋 Copy Code"; }, 2000);
+        });
+      });
+      codeSection.appendChild(copyBtn);
+      detailsContainer.appendChild(codeSection);
+    }
 
     const Dbt = u.querySelector(".delete-btn");
     if (g.creator_id === ue.id) {

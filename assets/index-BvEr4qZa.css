@@ -572,3 +572,29 @@ input[type="number"]::-webkit-outer-spin-button {
   color: #fff;
   transform: scale(1.15);
 }
+/* Private Challenge Styles */
+#invite-code-input:focus {
+  border-color: var(--accent-purple) !important;
+  box-shadow: 0 0 20px rgba(157, 0, 255, 0.5) !important;
+  background: rgba(20, 10, 40, 0.5) !important;
+}
+#invite-code-input::placeholder {
+  color: rgba(192, 132, 252, 0.4);
+  letter-spacing: 3px;
+  font-size: 1rem;
+}
+.private-badge {
+  animation: privatePulse 3s ease-in-out infinite;
+}
+@keyframes privatePulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; box-shadow: 0 0 8px rgba(157, 0, 255, 0.3); }
+}
+#join-private-section:hover {
+  border-color: rgba(157, 0, 255, 0.6) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 20px rgba(157, 0, 255, 0.15) !important;
+}
+#new-visibility:focus {
+  border-color: var(--accent-purple) !important;
+  box-shadow: 0 0 15px rgba(157, 0, 255, 0.4) !important;
+}
