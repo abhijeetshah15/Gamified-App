@@ -7586,16 +7586,32 @@ buffer/index.js:
       ORDER BY total_reps DESC
     `;
     },
-    async getOverallLeaderboard(exercise) {
-      return await he`
-      SELECT u.name, SUM(l.reps) as total_reps
-      FROM logs l
-      JOIN users u ON u.id = l.user_id
-      JOIN global_challenges c ON c.id = l.challenge_id
-      WHERE c.exercise = ${exercise}
-      GROUP BY u.name
-      ORDER BY total_reps DESC
-    `;
+    async getMyLeaderboardData(userId) {
+      // Get all challenges the user is part of
+      const challenges = await he`
+        SELECT c.*, u.name as creator_name
+        FROM global_challenges c
+        JOIN participants p ON c.id = p.challenge_id
+        JOIN users u ON c.creator_id = u.id
+        WHERE p.user_id = ${userId}
+        ORDER BY c.created_at DESC
+      `;
+      // For each challenge, get the leaderboard (only participants of that challenge)
+      const results = [];
+      for (const ch of challenges) {
+        const lb = await he`
+          SELECT u.id as user_id, u.name, COALESCE(SUM(l.reps), 0) as total_reps,
+                 COUNT(DISTINCT l.log_date) as days_logged
+          FROM participants p
+          JOIN users u ON u.id = p.user_id
+          LEFT JOIN logs l ON l.challenge_id = p.challenge_id AND l.user_id = p.user_id
+          WHERE p.challenge_id = ${ch.id}
+          GROUP BY u.id, u.name
+          ORDER BY total_reps DESC
+        `;
+        results.push({ challenge: ch, leaderboard: lb });
+      }
+      return results;
     },
     async deleteChallenge(g) {
       return await he`DELETE FROM global_challenges WHERE id = ${g}`;
@@ -7769,11 +7785,7 @@ const qr = {
           }
         }
       });
-    document
-      .getElementById("leaderboard-challenge")
-      .addEventListener("change", () => {
-        this.renderLeaderboard();
-      });
+    // Leaderboard auto-renders on view switch — no dropdown needed
     const createUserForm = document.getElementById("create-user-form");
     if (createUserForm) {
       createUserForm.addEventListener("submit", async (g) => {
@@ -7865,10 +7877,9 @@ const qr = {
     } else if (g === "leaderboard") {
       l.classList.remove("hidden");
       const a = document.getElementById("leaderboard-view");
-      (a.classList.remove("hidden"),
-        a.classList.add("active"),
-        await this.populateLeaderboardDropdown(),
-        await this.renderLeaderboard());
+      a.classList.remove("hidden");
+      a.classList.add("active");
+      await this.renderLeaderboard();
     }
   },
   async renderDashboard() {
@@ -8379,63 +8390,85 @@ const qr = {
       u
     );
   },
-  async populateLeaderboardDropdown() {
-    try {
-      const l = document.getElementById("leaderboard-challenge");
-      l.innerHTML = '<option value="">Select an Exercise for Overall Leaderboard</option>';
-      const exercises = ["Pushups", "Pullups", "Crunches", "Squats", "Planks", "Running", "Cycling"];
-      for (const ex of exercises) {
-        const u = document.createElement("option");
-        u.value = "overall___" + ex;
-        u.textContent = "Overall: " + ex;
-        l.appendChild(u);
-      }
-    } catch (g) {
-      console.error(g);
-    }
-  },
   async renderLeaderboard() {
-    const g = document.getElementById("leaderboard-container"),
-      l = document.getElementById("leaderboard-challenge").value;
-    if (!l) {
-      g.innerHTML =
-        '<p style="text-align:center;">Select an exercise or challenge to view rankings.</p>';
-      return;
-    }
-    g.innerHTML = '<div class="loading-spinner">Loading Leaderboard...</div>';
+    const container = document.getElementById("leaderboard-container");
+    container.innerHTML = '<div class="loading-spinner">Loading your leaderboards...</div>';
     try {
-      let u;
-      if (l.startsWith("overall___")) {
-        const exercise = l.split("overall___")[1];
-        u = await fe.getOverallLeaderboard(exercise);
-      } else {
-        const a = parseInt(l, 10);
-        u = await fe.getLeaderboard(a);
-      }
-      if (!u || u.length === 0) {
-        g.innerHTML =
-          '<p style="text-align:center;">No reps logged yet.</p>';
+      const data = await fe.getMyLeaderboardData(ue.id);
+      if (!data || data.length === 0) {
+        container.innerHTML = '<div class="glass-card" style="text-align:center;"><p>You haven\'t joined any challenges yet. Join one from the Dashboard!</p></div>';
         return;
       }
-      const s = u
-        .map((r, h) => {
-          const rank = this.getRank(parseInt(r.total_reps) || 0);
-          return `
-            <div class="leaderboard-item rank-${h + 1}">
-              <div class="player-info">
-                <div class="rank-badge">${h + 1}</div>
-                <div class="player-name">${r.name} <span style="font-size:0.75em; color:${rank.color}; margin-left: 6px; padding: 2px 4px; border: 1px solid ${rank.color}; border-radius: 4px; display: inline-block; white-space: nowrap;">${rank.badge} ${rank.title}</span></div>
+      let html = '<div class="lb-cards-grid">';
+      for (const item of data) {
+        const ch = item.challenge;
+        const lb = item.leaderboard;
+        const isPrivate = ch.visibility === 'private';
+        const unit = ch.exercise.toLowerCase() === 'planks' ? 'sec' : (ch.exercise.toLowerCase() === 'running' || ch.exercise.toLowerCase() === 'cycling' ? 'km' : 'reps');
+        // Calculate days elapsed
+        const startDate = new Date(ch.start_date || ch.created_at);
+        const elapsed = Math.min(Math.max(Math.floor((Date.now() - startDate.getTime()) / 86400000) + 1, 1), ch.duration_days);
+        const isCompleted = elapsed >= ch.duration_days;
+        const statusLabel = isCompleted ? '<span class="lb-status completed">✅ Completed</span>' : `<span class="lb-status active">🟢 Day ${elapsed}/${ch.duration_days}</span>`;
+        const visBadge = isPrivate ? '<span class="lb-vis-badge private">🔒 Private</span>' : '<span class="lb-vis-badge public">🌐 Public</span>';
+        // Build rows
+        let rowsHtml = '';
+        if (lb.length === 0) {
+          rowsHtml = '<p style="text-align:center;color:var(--text-secondary);padding:1rem 0;">No reps logged yet.</p>';
+        } else {
+          lb.forEach((player, idx) => {
+            const rank = this.getRank(parseInt(player.total_reps) || 0);
+            const totalPossible = ch.daily_target * elapsed;
+            const completionPct = totalPossible > 0 ? Math.min(Math.round((parseInt(player.total_reps) / totalPossible) * 100), 999) : 0;
+            const isMe = player.user_id === ue.id;
+            const meClass = isMe ? ' lb-row-me' : '';
+            const medalEmoji = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
+            rowsHtml += `
+              <div class="lb-row rank-${idx + 1}${meClass}">
+                <div class="lb-row-left">
+                  <div class="rank-badge">${idx + 1}</div>
+                  <div class="lb-player-details">
+                    <div class="lb-player-name">${medalEmoji} ${player.name}${isMe ? ' <span class="lb-you-tag">YOU</span>' : ''}</div>
+                    <div class="lb-player-meta">
+                      <span style="color:${rank.color};">${rank.badge} ${rank.title}</span>
+                      <span>·</span>
+                      <span>${player.days_logged} day${player.days_logged != 1 ? 's' : ''} logged</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="lb-row-right">
+                  <div class="lb-score">${player.total_reps}<span class="lb-unit">${unit}</span></div>
+                  <div class="lb-completion" style="color: ${completionPct >= 100 ? 'var(--accent-green)' : completionPct >= 50 ? 'var(--accent-cyan)' : 'var(--text-secondary)'}">${completionPct}%</div>
+                </div>
               </div>
-              <div class="player-score">${r.total_reps}</div>
-            </div>
             `;
-        })
-        .join("");
-      g.innerHTML = `<div class="leaderboard-list">${s}</div>`;
-    } catch (u) {
-      (console.error(u),
-        (g.innerHTML =
-          '<p class="error-text">Failed to load leaderboard.</p>'));
+          });
+        }
+        html += `
+          <div class="lb-card glass-card ${isPrivate ? 'lb-card-private' : ''}">
+            <div class="lb-card-header">
+              <div class="lb-card-title-row">
+                <h3 class="lb-card-title">${ch.exercise}</h3>
+                ${visBadge}
+              </div>
+              <div class="lb-card-meta">
+                <span>🎯 ${ch.daily_target} ${unit}/day</span>
+                <span>📅 ${ch.frequency || 'Daily'}</span>
+                ${statusLabel}
+              </div>
+              <div class="lb-card-creator">Created by <strong>${ch.creator_name}</strong></div>
+            </div>
+            <div class="lb-card-body">
+              ${rowsHtml}
+            </div>
+          </div>
+        `;
+      }
+      html += '</div>';
+      container.innerHTML = html;
+    } catch (err) {
+      console.error(err);
+      container.innerHTML = '<div class="glass-card"><p class="error-text" style="text-align:center;">Failed to load leaderboards. Please try again.</p></div>';
     }
   },
   logout() {
